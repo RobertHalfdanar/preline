@@ -1,6 +1,6 @@
 /*
  * HSStrongPassword
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
@@ -41,12 +41,6 @@ class HSStrongPassword
 	private rules: HTMLElement[] | null;
 	private availableChecks: string[] | null;
 
-	private onTargetInputListener: (evt: InputEvent) => void;
-	private onTargetFocusListener: () => void;
-	private onTargetBlurListener: () => void;
-	private onTargetInputSecondListener: () => void;
-	private onTargetInputThirdListener: () => void;
-
 	constructor(el: HTMLElement, options?: IStrongPasswordOptions) {
 		super(el, options);
 
@@ -86,38 +80,6 @@ class HSStrongPassword
 		if (this.target) this.init();
 	}
 
-	private targetInput(evt: InputEvent) {
-		this.setStrength((evt.target as HTMLInputElement).value);
-	}
-
-	private targetFocus() {
-		this.isOpened = true;
-		(this.hints as HTMLElement).classList.remove('hidden');
-		(this.hints as HTMLElement).classList.add('block');
-
-		this.recalculateDirection();
-	}
-
-	private targetBlur() {
-		this.isOpened = false;
-		(this.hints as HTMLElement).classList.remove(
-			'block',
-			'bottom-full',
-			'top-full',
-		);
-		(this.hints as HTMLElement).classList.add('hidden');
-		(this.hints as HTMLElement).style.marginTop = '';
-		(this.hints as HTMLElement).style.marginBottom = '';
-	}
-
-	private targetInputSecond() {
-		this.setWeaknessText();
-	}
-
-	private targetInputThird() {
-		this.setRulesText();
-	}
-
 	private init() {
 		this.createCollection(window.$hsStrongPasswordCollection, this);
 
@@ -130,11 +92,11 @@ class HSStrongPassword
 
 		this.setStrength((this.target as HTMLInputElement).value);
 
-		this.onTargetInputListener = (evt) => this.targetInput(evt);
-
 		(this.target as HTMLInputElement).addEventListener(
 			'input',
-			this.onTargetInputListener,
+			(evt: InputEvent) => {
+				this.setStrength((evt.target as HTMLInputElement).value);
+			},
 		);
 	}
 
@@ -174,17 +136,25 @@ class HSStrongPassword
 		if (this.weakness) this.buildWeakness();
 		if (this.rules) this.buildRules();
 		if (this.mode === 'popover') {
-			this.onTargetFocusListener = () => this.targetFocus();
-			this.onTargetBlurListener = () => this.targetBlur();
+			(this.target as HTMLInputElement).addEventListener('focus', () => {
+				this.isOpened = true;
+				(this.hints as HTMLElement).classList.remove('hidden');
+				(this.hints as HTMLElement).classList.add('block');
 
-			(this.target as HTMLInputElement).addEventListener(
-				'focus',
-				this.onTargetFocusListener,
-			);
-			(this.target as HTMLInputElement).addEventListener(
-				'blur',
-				this.onTargetBlurListener,
-			);
+				this.recalculateDirection();
+			});
+
+			(this.target as HTMLInputElement).addEventListener('blur', () => {
+				this.isOpened = false;
+				(this.hints as HTMLElement).classList.remove(
+					'block',
+					'bottom-full',
+					'top-full',
+				);
+				(this.hints as HTMLElement).classList.add('hidden');
+				(this.hints as HTMLElement).style.marginTop = '';
+				(this.hints as HTMLElement).style.marginBottom = '';
+			});
 		}
 	}
 
@@ -192,24 +162,16 @@ class HSStrongPassword
 		this.checkStrength((this.target as HTMLInputElement).value);
 		this.setWeaknessText();
 
-		this.onTargetInputSecondListener = () =>
-			setTimeout(() => this.targetInputSecond());
-
-		(this.target as HTMLInputElement).addEventListener(
-			'input',
-			this.onTargetInputSecondListener,
+		(this.target as HTMLInputElement).addEventListener('input', () =>
+			setTimeout(() => this.setWeaknessText()),
 		);
 	}
 
 	private buildRules() {
 		this.setRulesText();
 
-		this.onTargetInputThirdListener = () =>
-			setTimeout(() => this.targetInputThird());
-
-		(this.target as HTMLInputElement).addEventListener(
-			'input',
-			this.onTargetInputThirdListener,
+		(this.target as HTMLInputElement).addEventListener('input', () =>
+			setTimeout(() => this.setRulesText()),
 		);
 	}
 
@@ -357,59 +319,20 @@ class HSStrongPassword
 		}
 	}
 
-	public destroy() {
-		// Remove listeners
-		(this.target as HTMLInputElement).removeEventListener(
-			'input',
-			this.onTargetInputListener,
-		);
-		(this.target as HTMLInputElement).removeEventListener(
-			'focus',
-			this.onTargetFocusListener,
-		);
-		(this.target as HTMLInputElement).removeEventListener(
-			'blur',
-			this.onTargetBlurListener,
-		);
-		(this.target as HTMLInputElement).removeEventListener(
-			'input',
-			this.onTargetInputSecondListener,
-		);
-		(this.target as HTMLInputElement).removeEventListener(
-			'input',
-			this.onTargetInputThirdListener,
-		);
-
-		window.$hsStrongPasswordCollection =
-			window.$hsStrongPasswordCollection.filter(
-				({ element }) => element.el !== this.el,
-			);
-	}
-
 	// Static methods
-	static getInstance(target: HTMLElement | string, isInstance?: boolean) {
+	static getInstance(target: HTMLElement | string) {
 		const elInCollection = window.$hsStrongPasswordCollection.find(
 			(el) =>
 				el.element.el ===
 				(typeof target === 'string' ? document.querySelector(target) : target),
 		);
 
-		return elInCollection
-			? isInstance
-				? elInCollection
-				: elInCollection.element.el
-			: null;
+		return elInCollection ? elInCollection.element : null;
 	}
 
 	static autoInit() {
 		if (!window.$hsStrongPasswordCollection)
 			window.$hsStrongPasswordCollection = [];
-
-		if (window.$hsStrongPasswordCollection)
-			window.$hsStrongPasswordCollection =
-				window.$hsStrongPasswordCollection.filter(({ element }) =>
-					document.contains(element.el),
-				);
 
 		document
 			.querySelectorAll(

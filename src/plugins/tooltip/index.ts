@@ -1,6 +1,6 @@
 /*
  * HSTooltip
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
@@ -9,8 +9,7 @@
 import { createPopper, PositioningStrategy, Instance } from '@popperjs/core';
 import { getClassProperty, dispatch, afterTransition } from '../../utils';
 
-import { ITooltip } from './interfaces';
-import { TTooltipOptionsScope } from './types';
+import { ITooltip } from '../tooltip/interfaces';
 
 import HSBasePlugin from '../base-plugin';
 import { ICollectionItem } from '../../interfaces';
@@ -22,16 +21,9 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 	public content: HTMLElement | null;
 	readonly eventMode: string;
 	private readonly preventPopper: string;
-	private popperInstance: Instance | null;
+	private popperInstance: Instance;
 	private readonly placement: string;
 	private readonly strategy: PositioningStrategy;
-	private readonly scope: TTooltipOptionsScope;
-
-	private onToggleClickListener: () => void;
-	private onToggleFocusListener: () => void;
-	private onToggleMouseEnterListener: () => void;
-	private onToggleMouseLeaveListener: () => void;
-	private onToggleHandleListener: () => void;
 
 	constructor(el: HTMLElement, options?: {}, events?: {}) {
 		super(el, options, events);
@@ -50,65 +42,28 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 				this.el,
 				'--strategy',
 			) as PositioningStrategy;
-			this.scope = getClassProperty(this.el, '--scope') as TTooltipOptionsScope || 'parent';
 		}
 
 		if (this.el && this.toggle && this.content) this.init();
-	}
-
-	private toggleClick() {
-		this.click();
-	}
-
-	private toggleFocus() {
-		this.focus();
-	}
-
-	private toggleMouseEnter() {
-		this.enter();
-	}
-
-	private toggleMouseLeave() {
-		this.leave();
-	}
-
-	private toggleHandle() {
-		this.hide();
-
-		this.toggle.removeEventListener('click', this.onToggleHandleListener, true);
-		this.toggle.removeEventListener('blur', this.onToggleHandleListener, true);
 	}
 
 	private init() {
 		this.createCollection(window.$hsTooltipCollection, this);
 
 		if (this.eventMode === 'click') {
-			this.onToggleClickListener = () => this.toggleClick();
-
-			this.toggle.addEventListener('click', this.onToggleClickListener);
+			this.toggle.addEventListener('click', () => this.click());
 		} else if (this.eventMode === 'focus') {
-			this.onToggleFocusListener = () => this.toggleFocus();
-
-			this.toggle.addEventListener('click', this.onToggleFocusListener);
+			this.toggle.addEventListener('click', () => this.focus());
 		} else if (this.eventMode === 'hover') {
-			this.onToggleMouseEnterListener = () => this.toggleMouseEnter();
-			this.onToggleMouseLeaveListener = () => this.toggleMouseLeave();
-
-			this.toggle.addEventListener(
-				'mouseenter',
-				this.onToggleMouseEnterListener,
-			);
-			this.toggle.addEventListener(
-				'mouseleave',
-				this.onToggleMouseLeaveListener,
-			);
+			this.toggle.addEventListener('mouseenter', () => this.enter());
+			this.toggle.addEventListener('mouseleave', () => this.leave());
 		}
 
 		if (this.preventPopper === 'false') this.buildPopper();
 	}
 
 	private enter() {
-		this._show();
+		this.show();
 	}
 
 	private leave() {
@@ -118,18 +73,23 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 	private click() {
 		if (this.el.classList.contains('show')) return false;
 
-		this._show();
+		this.show();
 
-		this.onToggleHandleListener = () => {
-			setTimeout(() => this.toggleHandle());
+		const handle = () => {
+			setTimeout(() => {
+				this.hide();
+
+				this.toggle.removeEventListener('click', handle, true);
+				this.toggle.removeEventListener('blur', handle, true);
+			});
 		};
 
-		this.toggle.addEventListener('click', this.onToggleHandleListener, true);
-		this.toggle.addEventListener('blur', this.onToggleHandleListener, true);
+		this.toggle.addEventListener('click', handle, true);
+		this.toggle.addEventListener('blur', handle, true);
 	}
 
 	private focus() {
-		this._show();
+		this.show();
 
 		const handle = () => {
 			this.hide();
@@ -141,8 +101,6 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 	}
 
 	private buildPopper() {
-		if (this.scope === 'window') document.body.appendChild(this.content);
-
 		this.popperInstance = createPopper(this.toggle, this.content, {
 			placement: POSITIONS[this.placement] || 'top',
 			strategy: this.strategy || 'fixed',
@@ -157,9 +115,9 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 		});
 	}
 
-	private _show() {
+	// Public methods
+	public show() {
 		this.content.classList.remove('hidden');
-		if (this.scope === 'window') this.content.classList.add('show');
 
 		if (this.preventPopper === 'false') {
 			this.popperInstance.setOptions((options) => ({
@@ -184,27 +142,8 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 		});
 	}
 
-	// Public methods
-	public show() {
-		switch (this.eventMode) {
-			case 'click':
-				this.click();
-				break;
-			case 'focus':
-				this.focus();
-				break;
-			default:
-				this.enter();
-				break;
-		}
-
-		this.toggle.focus();
-		this.toggle.style.outline = 'none';
-	}
-
 	public hide() {
 		this.el.classList.remove('show');
-		if (this.scope === 'window') this.content.classList.remove('show');
 
 		if (this.preventPopper === 'false') {
 			this.popperInstance.setOptions((options) => ({
@@ -226,39 +165,7 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 			if (this.el.classList.contains('show')) return false;
 
 			this.content.classList.add('hidden');
-			this.toggle.style.outline = '';
 		});
-	}
-
-	public destroy() {
-		// Remove classes
-		this.el.classList.remove('show');
-		this.content.classList.add('hidden');
-
-		// Remove listeners
-		if (this.eventMode === 'click') {
-			this.toggle.removeEventListener('click', this.onToggleClickListener);
-		} else if (this.eventMode === 'focus') {
-			this.toggle.removeEventListener('click', this.onToggleFocusListener);
-		} else if (this.eventMode === 'hover') {
-			this.toggle.removeEventListener(
-				'mouseenter',
-				this.onToggleMouseEnterListener,
-			);
-			this.toggle.removeEventListener(
-				'mouseleave',
-				this.onToggleMouseLeaveListener,
-			);
-		}
-		this.toggle.removeEventListener('click', this.onToggleHandleListener, true);
-		this.toggle.removeEventListener('blur', this.onToggleHandleListener, true);
-
-		this.popperInstance.destroy();
-		this.popperInstance = null;
-
-		window.$hsTooltipCollection = window.$hsTooltipCollection.filter(
-			({ element }) => element.el !== this.el,
-		);
 	}
 
 	// Static methods
@@ -279,11 +186,6 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 	static autoInit() {
 		if (!window.$hsTooltipCollection) window.$hsTooltipCollection = [];
 
-		if (window.$hsTooltipCollection)
-			window.$hsTooltipCollection = window.$hsTooltipCollection.filter(
-				({ element }) => document.contains(element.el),
-			);
-
 		document.querySelectorAll('.hs-tooltip').forEach((el: HTMLElement) => {
 			if (
 				!window.$hsTooltipCollection.find(
@@ -301,7 +203,19 @@ class HSTooltip extends HSBasePlugin<{}> implements ITooltip {
 				(typeof target === 'string' ? document.querySelector(target) : target),
 		);
 
-		if (elInCollection) elInCollection.element.show();
+		if (elInCollection) {
+			switch (elInCollection.element.eventMode) {
+				case 'click':
+					elInCollection.element.click();
+					break;
+				case 'focus':
+					elInCollection.element.focus();
+					break;
+				default:
+					elInCollection.element.enter();
+					break;
+			}
+		}
 	}
 
 	static hide(target: HTMLElement) {

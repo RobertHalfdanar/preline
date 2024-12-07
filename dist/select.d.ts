@@ -29,7 +29,6 @@ export interface ISingleOption {
 }
 export interface IApiFieldMap {
 	id: string;
-	val: string;
 	title: string;
 	icon?: string | null;
 	description?: string | null;
@@ -57,8 +56,7 @@ export interface ISelectOptions {
 		items?: string;
 		betweenItemsAndCounter?: string;
 	};
-	toggleCountText?: string | null;
-	toggleCountTextPlacement?: "postfix" | "prefix" | "postfix-no-space" | "prefix-no-space";
+	toggleCountText?: string;
 	toggleCountTextMinItems?: number;
 	toggleCountTextMode?: string;
 	tagsItemTemplate?: string;
@@ -73,7 +71,6 @@ export interface ISelectOptions {
 	};
 	dropdownSpace: number;
 	dropdownPlacement: string | null;
-	dropdownVerticalFixedPlacement: "top" | "bottom" | null;
 	dropdownScope: "window" | "parent";
 	extraMarkup?: string | string[] | null;
 	searchTemplate?: string;
@@ -96,13 +93,12 @@ export interface ISelectOptions {
 }
 export interface ISelect {
 	options?: ISelectOptions;
-	setValue(val: string | string[]): void;
+	destroy(): void;
 	open(): void;
 	close(): void;
 	addOption(items: ISingleOption | ISingleOption[]): void;
 	removeOption(values: string | string[]): void;
 	recalculateDirection(): void;
-	destroy(): void;
 }
 declare class HSSelect extends HSBasePlugin<ISelectOptions> implements ISelect {
 	value: string | string[] | null;
@@ -126,7 +122,6 @@ declare class HSSelect extends HSBasePlugin<ISelectOptions> implements ISelect {
 	private readonly toggleClasses;
 	private readonly toggleSeparators;
 	private readonly toggleCountText;
-	private readonly toggleCountTextPlacement;
 	private readonly toggleCountTextMinItems;
 	private readonly toggleCountTextMode;
 	private readonly wrapperClasses;
@@ -139,7 +134,6 @@ declare class HSSelect extends HSBasePlugin<ISelectOptions> implements ISelect {
 	private readonly dropdownDirectionClasses;
 	dropdownSpace: number | null;
 	readonly dropdownPlacement: string | null;
-	readonly dropdownVerticalFixedPlacement: "top" | "bottom" | null;
 	readonly dropdownScope: "window" | "parent";
 	private readonly searchTemplate;
 	private readonly searchWrapperTemplate;
@@ -173,21 +167,7 @@ declare class HSSelect extends HSBasePlugin<ISelectOptions> implements ISelect {
 	private tagsInputHelper;
 	private remoteOptions;
 	private optionId;
-	private onWrapperClickListener;
-	private onToggleClickListener;
-	private onTagsInputFocusListener;
-	private onTagsInputInputListener;
-	private onTagsInputInputSecondListener;
-	private onTagsInputKeydownListener;
-	private onSearchInputListener;
 	constructor(el: HTMLElement, options?: ISelectOptions);
-	private wrapperClick;
-	private toggleClick;
-	private tagsInputFocus;
-	private tagsInputInput;
-	private tagsInputInputSecond;
-	private tagsInputKeydown;
-	private searchInput;
 	setValue(val: string | string[]): void;
 	private init;
 	private build;
@@ -238,10 +218,10 @@ declare class HSSelect extends HSBasePlugin<ISelectOptions> implements ISelect {
 	private toggleFn;
 	destroy(): void;
 	open(): boolean;
-	close(forceFocus?: boolean): boolean;
+	close(): boolean;
 	addOption(items: ISingleOption | ISingleOption[]): void;
 	removeOption(values: string | string[]): void;
-	recalculateDirection(): boolean;
+	recalculateDirection(): void;
 	static getInstance(target: HTMLElement | string, isInstance?: boolean): HSSelect | ICollectionItem<HSSelect>;
 	static autoInit(): void;
 	static open(target: HTMLElement | string): void;

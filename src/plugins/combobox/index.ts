@@ -1,6 +1,6 @@
 /*
  * HSComboBox
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
@@ -34,8 +34,6 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 	apiDataPart: string | null;
 	apiQuery: string | null;
 	apiSearchQuery: string | null;
-	apiSearchPath: string | null;
-	apiSearchDefaultPath: string | null;
 	apiHeaders: {};
 	apiGroupField: string | null;
 	outputItemTemplate: string | null;
@@ -61,19 +59,12 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 
 	private value: string | null;
 	private selected: string | null;
-	private currentData: {} | {}[] | null;
 	private groups: any[] | null;
 	private selectedGroup: string | null;
 
 	isOpened: boolean;
 	isCurrent: boolean;
 	private animationInProcess: boolean;
-
-	private onInputFocusListener: () => void;
-	private onInputInputListener: (evt: InputEvent) => void;
-	private onToggleClickListener: () => void;
-	private onToggleCloseClickListener: () => void;
-	private onToggleOpenClickListener: () => void;
 
 	constructor(el: HTMLElement, options?: IComboBoxOptions, events?: {}) {
 		super(el, options, events);
@@ -96,8 +87,6 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		this.apiDataPart = concatOptions?.apiDataPart ?? null;
 		this.apiQuery = concatOptions?.apiQuery ?? null;
 		this.apiSearchQuery = concatOptions?.apiSearchQuery ?? null;
-		this.apiSearchPath = concatOptions?.apiSearchPath ?? null;
-		this.apiSearchDefaultPath = concatOptions?.apiSearchDefaultPath ?? null;
 		this.apiHeaders = concatOptions?.apiHeaders ?? {};
 		this.apiGroupField = concatOptions?.apiGroupField ?? null;
 		this.outputItemTemplate =
@@ -153,40 +142,12 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		this.selected = this.value =
 			(this.el.querySelector('[data-hs-combo-box-input]') as HTMLInputElement)
 				.value ?? '';
-		this.currentData = null;
 		this.isOpened = false;
 		this.isCurrent = false;
 		this.animationInProcess = false;
 		this.selectedGroup = 'all';
 
 		this.init();
-	}
-
-	private inputFocus() {
-		if (!this.isOpened) {
-			this.setResultAndRender();
-			this.open();
-		}
-	}
-
-	private inputInput(evt: InputEvent) {
-		this.setResultAndRender((evt.target as HTMLInputElement).value);
-		if (this.input.value !== '') this.el.classList.add('has-value');
-		else this.el.classList.remove('has-value');
-		if (!this.isOpened) this.open();
-	}
-
-	private toggleClick() {
-		if (this.isOpened) this.close();
-		else this.open(this.toggle.getAttribute('data-hs-combo-box-toggle'));
-	}
-
-	private toggleCloseClick() {
-		this.close();
-	}
-
-	private toggleOpenClick() {
-		this.open();
 	}
 
 	private init() {
@@ -210,51 +171,47 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		if (this.toggleOpen) this.buildToggleOpen();
 	}
 
-	private getNestedProperty<T>(obj: T, path: string): any {
-		return path.split('.').reduce((acc: any, key: string) => acc && acc[key], obj);
-	}
-
-	private setValue(val: string, data: {} | null = null) {
-		this.selected = val;
-		this.value = val;
-		this.input.value = val;
-
-		if (data) this.currentData = data;
-
-		this.fireEvent('select', this.currentData);
-		dispatch('select.hs.combobox', this.el, this.currentData);
-	}
-
-	private setValueAndOpen(val: string) {
-		this.value = val;
-
-		if (this.items.length) {
-			this.setItemsVisibility();
-		}
-	}
-
-	private setValueAndClear(val: string | null, data: {} | null = null) {
-		if (val) this.setValue(val, data);
-		else this.setValue(this.selected, data);
-
-		if (this.outputPlaceholder) this.destroyOutputPlaceholder();
-	}
-
-	private setSelectedByValue(val: string[]) {
-		this.items.forEach((el) => {
-			if (this.isTextExists(el, val))
-				(el as HTMLElement).classList.add('selected');
-			else (el as HTMLElement).classList.remove('selected');
-		});
-	}
-
 	private setResultAndRender(value = '') {
 		// TODO:: test the plugin with below code added.
 		let _value = this.preventVisibility ? this.input.value : value;
 
 		this.setResults(_value);
 
-		if (this.apiSearchQuery || this.apiSearchPath || this.apiSearchDefaultPath) this.itemsFromJson();
+		if (this.apiSearchQuery) this.itemsFromJson();
+	}
+
+	private buildInput() {
+		if (this.isOpenOnFocus) {
+			this.input.addEventListener('focus', () => {
+				if (!this.isOpened) {
+					this.setResultAndRender();
+					this.open();
+				}
+			});
+		}
+
+		this.input.addEventListener(
+			'input',
+			debounce((evt: InputEvent) => {
+				this.setResultAndRender((evt.target as HTMLInputElement).value);
+				if (this.input.value !== '') this.el.classList.add('has-value');
+				else this.el.classList.remove('has-value');
+				if (!this.isOpened) this.open();
+			}),
+		);
+	}
+
+	private buildItems() {
+		this.output.role = 'listbox';
+		this.output.tabIndex = -1;
+		this.output.ariaOrientation = 'vertical';
+
+		if (this.apiUrl) this.itemsFromJson();
+		else {
+			if (this.itemsWrapper) this.itemsWrapper.innerHTML = '';
+			else this.output.innerHTML = '';
+			this.itemsFromHtml();
+		}
 	}
 
 	private setResults(val: string) {
@@ -266,88 +223,30 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		else this.buildOutputPlaceholder();
 	}
 
-	private setGroups() {
-		const groups: any[] = [];
+	private isItemExists(obj: never): boolean {
+		return this.items.some((el: HTMLElement) => {
+			const groupField =
+				el.getAttribute('data-hs-combo-box-output-item-group-field') ?? null;
+			const params =
+				JSON.parse(el.getAttribute('data-hs-combo-box-output-item')) ?? null;
+			let group = null;
 
-		this.items.forEach((item: HTMLElement) => {
-			const { group } = JSON.parse(
-				item.getAttribute('data-hs-combo-box-output-item'),
-			);
+			if (groupField && params?.group?.name) group = obj[groupField];
 
-			if (!groups.some((el) => el?.name === group.name)) {
-				groups.push(group);
-			}
-		});
+			return Array.from(
+				el.querySelectorAll('[data-hs-combo-box-search-text]'),
+			).some((elI: HTMLElement) => {
+				const equality =
+					params?.group?.name && group
+						? group === params.group.name &&
+							elI.getAttribute('data-hs-combo-box-search-text') ===
+								obj[elI.getAttribute('data-hs-combo-box-output-item-field')]
+						: elI.getAttribute('data-hs-combo-box-search-text') ===
+							obj[elI.getAttribute('data-hs-combo-box-output-item-field')];
 
-		this.groups = groups;
-	}
-
-	private setApiGroups(items: any) {
-		const groups: any[] = [];
-
-		items.forEach((item: any) => {
-			const group = item[this.apiGroupField];
-
-			if (!groups.some((el) => el.name === group)) {
-				groups.push({
-					name: group,
-					title: group,
-				});
-			}
-		});
-
-		this.groups = groups;
-	}
-
-	private setItemsVisibility() {
-		if (this.groupingType === 'tabs' && this.selectedGroup !== 'all') {
-			this.items.forEach((item) => {
-				(item as HTMLElement).style.display = 'none';
+				return equality;
 			});
-		}
-
-		const items =
-			this.groupingType === 'tabs'
-				? this.selectedGroup === 'all'
-					? this.items
-					: this.items.filter((f: HTMLElement) => {
-						const { group } = JSON.parse(
-							f.getAttribute('data-hs-combo-box-output-item'),
-						);
-
-						return group.name === this.selectedGroup;
-					})
-				: this.items;
-
-		if (this.groupingType === 'tabs' && this.selectedGroup !== 'all') {
-			items.forEach((item) => {
-				(item as HTMLElement).style.display = 'block';
-			});
-		}
-
-		items.forEach((item) => {
-			if (!this.isTextExistsAny(item, this.value))
-				(item as HTMLElement).style.display = 'none';
-			else (item as HTMLElement).style.display = 'block';
 		});
-
-		if (this.groupingType === 'default') {
-			this.output
-				.querySelectorAll('[data-hs-combo-box-group-title]')
-				.forEach((el: HTMLElement) => {
-					const g = el.getAttribute('data-hs-combo-box-group-title');
-					const items = this.items.filter((f: HTMLElement) => {
-						const { group } = JSON.parse(
-							f.getAttribute('data-hs-combo-box-output-item'),
-						);
-
-						return group.name === g && f.style.display === 'block';
-					});
-
-					if (items.length) el.style.display = 'block';
-					else el.style.display = 'none';
-				});
-		}
 	}
 
 	private isTextExists(el: HTMLElement, val: string[]): boolean {
@@ -373,12 +272,6 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		);
 	}
 
-	private hasVisibleItems() {
-		return this.items.length
-			? this.items.some((el: HTMLElement) => el.style.display === 'block')
-			: false;
-	}
-
 	private valuesBySelector(el: HTMLElement) {
 		return Array.from(
 			el.querySelectorAll('[data-hs-combo-box-search-text]'),
@@ -389,57 +282,6 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 			],
 			[],
 		);
-	}
-
-	private sortItems() {
-		const compareFn = (i1: HTMLElement, i2: HTMLElement) => {
-			const a = i1
-				.querySelector('[data-hs-combo-box-value]')
-				.getAttribute('data-hs-combo-box-search-text');
-			const b = i2
-				.querySelector('[data-hs-combo-box-value]')
-				.getAttribute('data-hs-combo-box-search-text');
-
-			if (a < b) {
-				return -1;
-			} else if (a > b) {
-				return 1;
-			}
-
-			return 0;
-		};
-
-		return this.items.sort(compareFn);
-	}
-
-	private buildInput() {
-		if (this.isOpenOnFocus) {
-			this.onInputFocusListener = () => this.inputFocus();
-
-			this.input.addEventListener('focus', this.onInputFocusListener);
-		}
-
-		this.onInputInputListener = debounce((evt: InputEvent) =>
-			this.inputInput(evt),
-		);
-
-		this.input.addEventListener('input', this.onInputInputListener);
-	}
-
-	private async buildItems() {
-		this.output.role = 'listbox';
-		this.output.tabIndex = -1;
-		this.output.ariaOrientation = 'vertical';
-
-		if (this.apiUrl) await this.itemsFromJson();
-		else {
-			if (this.itemsWrapper) this.itemsWrapper.innerHTML = '';
-			else this.output.innerHTML = '';
-			this.itemsFromHtml();
-		}
-
-		if (this.items[0].classList.contains('selected'))
-			this.currentData = JSON.parse(this.items[0].getAttribute('data-hs-combo-box-item-stored-data'));
 	}
 
 	private buildOutputLoader() {
@@ -466,76 +308,84 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		this.output.append(this.outputLoader);
 	}
 
-	private buildToggle() {
-		if (this.isOpened) {
-			if (this?.toggle?.ariaExpanded) this.toggle.ariaExpanded = 'true';
-			if (this?.input?.ariaExpanded) this.input.ariaExpanded = 'true';
-		} else {
-			if (this?.toggle?.ariaExpanded) this.toggle.ariaExpanded = 'false';
-			if (this?.input?.ariaExpanded) this.input.ariaExpanded = 'false';
-		}
-
-		this.onToggleClickListener = () => this.toggleClick();
-
-		this.toggle.addEventListener('click', this.onToggleClickListener);
-	}
-
-	private buildToggleClose() {
-		this.onToggleCloseClickListener = () => this.toggleCloseClick();
-
-		this.toggleClose.addEventListener('click', this.onToggleCloseClickListener);
-	}
-
-	private buildToggleOpen() {
-		this.onToggleOpenClickListener = () => this.toggleOpenClick();
-
-		this.toggleOpen.addEventListener('click', this.onToggleOpenClickListener);
-	}
-
-	private buildOutputPlaceholder() {
-		if (!this.outputPlaceholder)
-			this.outputPlaceholder = htmlToElement(this.outputEmptyTemplate);
-
-		this.appendItemsToWrapper(this.outputPlaceholder);
-	}
-
 	private destroyOutputLoader() {
 		if (this.outputLoader) this.outputLoader.remove();
 
 		this.outputLoader = null;
 	}
 
-	private itemRender(item: HTMLElement) {
-		const val = item
-			.querySelector('[data-hs-combo-box-value]')
-			.getAttribute('data-hs-combo-box-search-text');
-		const data = JSON.parse(item.getAttribute('data-hs-combo-box-item-stored-data')) ?? null;
+	private async itemsFromJson() {
+		this.buildOutputLoader();
 
-		if (this.itemsWrapper) this.itemsWrapper.append(item);
-		else this.output.append(item);
+		try {
+			const query = `${this.apiQuery}`;
+			const searchQuery = `${this.apiSearchQuery}=${this.value.toLowerCase()}`;
+			let url = this.apiUrl;
+			if (this.apiQuery && this.apiSearchQuery) {
+				url += `?${searchQuery}&${query}`;
+			} else if (this.apiQuery) {
+				url += `?${query}`;
+			} else if (this.apiSearchQuery) {
+				url += `?${searchQuery}`;
+			}
+			const res = await fetch(url, this.apiHeaders);
+			let items = await res.json();
+			if (this.apiDataPart) {
+				items = items[this.apiDataPart];
+			}
+			if (this.apiSearchQuery) {
+				this.items = [];
+			}
+			if (this.itemsWrapper) {
+				this.itemsWrapper.innerHTML = '';
+			} else {
+				this.output.innerHTML = '';
+			}
 
-		if (!this.preventSelection) {
-			item.addEventListener('click', () => {
-				this.close(val, data);
-				this.setSelectedByValue(this.valuesBySelector(item));
-			});
+			if (this.groupingType === 'tabs') {
+				this.setApiGroups(items);
+				this.groupTabsRender();
+				this.jsonItemsRender(items);
+			} else if (this.groupingType === 'default') {
+				this.setApiGroups(items);
+
+				this.groups.forEach((el) => {
+					const title = htmlToElement(this.groupingTitleTemplate);
+					title.setAttribute('data-hs-combo-box-group-title', el.name);
+					title.classList.add('--exclude-accessibility');
+					title.innerText = el.title;
+					const newItems = items.filter(
+						(i: any) => i[this.apiGroupField] === el.name,
+					);
+
+					if (this.itemsWrapper) this.itemsWrapper.append(title);
+					else this.output.append(title);
+
+					this.jsonItemsRender(newItems);
+				});
+			} else {
+				this.jsonItemsRender(items);
+			}
+
+			this.setResults(this.input.value);
+		} catch (err) {
+			console.error(err);
 		}
-	}
 
-	private plainRender(items: HTMLElement[]) {
-		items.forEach((item: HTMLElement) => {
-			this.itemRender(item);
-		});
+		this.destroyOutputLoader();
 	}
 
 	private jsonItemsRender(items: any) {
 		items.forEach((item: never, index: number) => {
+			// TODO:: test without checking below
+			// if (this.isItemExists(item)) return false;
+
 			const newItem = htmlToElement(this.outputItemTemplate);
-			newItem.setAttribute('data-hs-combo-box-item-stored-data', JSON.stringify(item));
 			newItem
 				.querySelectorAll('[data-hs-combo-box-output-item-field]')
 				.forEach((el) => {
-					const value = this.getNestedProperty(item, el.getAttribute('data-hs-combo-box-output-item-field'));
+					const value =
+						item[el.getAttribute('data-hs-combo-box-output-item-field')];
 					const hideIfEmpty = el.hasAttribute(
 						'data-hs-combo-box-output-item-hide-if-empty',
 					);
@@ -546,11 +396,9 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 			newItem
 				.querySelectorAll('[data-hs-combo-box-search-text]')
 				.forEach((el) => {
-					const value = this.getNestedProperty(item, el.getAttribute('data-hs-combo-box-output-item-field'));
-
 					el.setAttribute(
 						'data-hs-combo-box-search-text',
-						value ?? '',
+						item[el.getAttribute('data-hs-combo-box-output-item-field')] ?? '',
 					);
 				});
 			newItem
@@ -568,7 +416,8 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 			if (this.groupingType === 'tabs' || this.groupingType === 'default') {
 				newItem.setAttribute(
 					'data-hs-combo-box-output-item',
-					`{"group": {"name": "${item[this.apiGroupField]}", "title": "${item[this.apiGroupField]
+					`{"group": {"name": "${item[this.apiGroupField]}", "title": "${
+						item[this.apiGroupField]
 					}"}}`,
 				);
 			}
@@ -581,8 +430,6 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 						(newItem as HTMLElement)
 							.querySelector('[data-hs-combo-box-value]')
 							.getAttribute('data-hs-combo-box-search-text'),
-						JSON.parse((newItem as HTMLElement)
-							.getAttribute('data-hs-combo-box-item-stored-data')),
 					);
 
 					this.setSelectedByValue(this.valuesBySelector(newItem));
@@ -593,25 +440,87 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		});
 	}
 
-	private groupDefaultRender() {
-		this.groups.forEach((el) => {
-			const title = htmlToElement(this.groupingTitleTemplate);
-			title.setAttribute('data-hs-combo-box-group-title', el.name);
-			title.classList.add('--exclude-accessibility');
-			title.innerText = el.title;
+	private setGroups() {
+		const groups: any[] = [];
 
-			if (this.itemsWrapper) this.itemsWrapper.append(title);
-			else this.output.append(title);
+		this.items.forEach((item: HTMLElement) => {
+			const { group } = JSON.parse(
+				item.getAttribute('data-hs-combo-box-output-item'),
+			);
 
-			const items = this.sortItems().filter((f) => {
-				const { group } = JSON.parse(
-					f.getAttribute('data-hs-combo-box-output-item'),
-				);
+			if (!groups.some((el) => el?.name === group.name)) {
+				groups.push(group);
+			}
+		});
 
-				return group.name === el.name;
+		this.groups = groups;
+	}
+
+	public setCurrent() {
+		if (window.$hsComboBoxCollection.length) {
+			window.$hsComboBoxCollection.map((el) => (el.element.isCurrent = false));
+
+			this.isCurrent = true;
+		}
+	}
+
+	private setApiGroups(items: any) {
+		const groups: any[] = [];
+
+		items.forEach((item: any) => {
+			const group = item[this.apiGroupField];
+
+			if (!groups.some((el) => el.name === group)) {
+				groups.push({
+					name: group,
+					title: group,
+				});
+			}
+		});
+
+		this.groups = groups;
+	}
+
+	private sortItems() {
+		const compareFn = (i1: HTMLElement, i2: HTMLElement) => {
+			const a = i1
+				.querySelector('[data-hs-combo-box-value]')
+				.getAttribute('data-hs-combo-box-search-text');
+			const b = i2
+				.querySelector('[data-hs-combo-box-value]')
+				.getAttribute('data-hs-combo-box-search-text');
+
+			if (a < b) {
+				return -1;
+			} else if (a > b) {
+				return 1;
+			}
+
+			return 0;
+		};
+
+		return this.items.sort(compareFn);
+	}
+
+	private itemRender(item: HTMLElement) {
+		const val = item
+			.querySelector('[data-hs-combo-box-value]')
+			.getAttribute('data-hs-combo-box-search-text');
+
+		if (this.itemsWrapper) this.itemsWrapper.append(item);
+		else this.output.append(item);
+
+		if (!this.preventSelection) {
+			item.addEventListener('click', () => {
+				this.close(val);
+				this.setSelectedByValue(this.valuesBySelector(item));
 			});
+		}
+	}
 
-			this.plainRender(items);
+	private plainRender(items: HTMLElement[]) {
+		items.forEach((item: HTMLElement) => {
+			this.itemRender(item);
 		});
 	}
 
@@ -667,6 +576,28 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		});
 	}
 
+	private groupDefaultRender() {
+		this.groups.forEach((el) => {
+			const title = htmlToElement(this.groupingTitleTemplate);
+			title.setAttribute('data-hs-combo-box-group-title', el.name);
+			title.classList.add('--exclude-accessibility');
+			title.innerText = el.title;
+
+			if (this.itemsWrapper) this.itemsWrapper.append(title);
+			else this.output.append(title);
+
+			const items = this.sortItems().filter((f) => {
+				const { group } = JSON.parse(
+					f.getAttribute('data-hs-combo-box-output-item'),
+				);
+
+				return group.name === el.name;
+			});
+
+			this.plainRender(items);
+		});
+	}
+
 	private itemsFromHtml() {
 		if (this.groupingType === 'default') {
 			this.groupDefaultRender();
@@ -683,85 +614,101 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		this.setResults(this.input.value);
 	}
 
-	private async itemsFromJson() {
-		this.buildOutputLoader();
-
-		try {
-			const query = `${this.apiQuery}`;
-			let searchQuery;
-			let searchPath;
-			let url = this.apiUrl;
-
-			if (!this.apiSearchQuery && this.apiSearchPath) {
-				if (this.apiSearchDefaultPath && this.value === '') {
-					searchPath = `/${this.apiSearchDefaultPath}`;
-				} else {
-					searchPath = `/${this.apiSearchPath}/${this.value.toLowerCase()}`;
-				}
-
-				if (this.apiSearchPath || this.apiSearchDefaultPath) {
-					url += searchPath;
-				}
-			} else {
-				searchQuery = `${this.apiSearchQuery}=${this.value.toLowerCase()}`;
-
-				if (this.apiQuery && this.apiSearchQuery) {
-					url += `?${searchQuery}&${query}`;
-				} else if (this.apiQuery) {
-					url += `?${query}`;
-				} else if (this.apiSearchQuery) {
-					url += `?${searchQuery}`;
-				}
-			}
-
-			const res = await fetch(url, this.apiHeaders);
-			let items = await res.json();
-
-			if (this.apiDataPart) {
-				items = items[this.apiDataPart];
-			}
-			if (this.apiSearchQuery || this.apiSearchPath) {
-				this.items = [];
-			}
-			if (this.itemsWrapper) {
-				this.itemsWrapper.innerHTML = '';
-			} else {
-				this.output.innerHTML = '';
-			}
-
-			if (this.groupingType === 'tabs') {
-				this.setApiGroups(items);
-				this.groupTabsRender();
-				this.jsonItemsRender(items);
-			} else if (this.groupingType === 'default') {
-				this.setApiGroups(items);
-
-				this.groups.forEach((el) => {
-					const title = htmlToElement(this.groupingTitleTemplate);
-					title.setAttribute('data-hs-combo-box-group-title', el.name);
-					title.classList.add('--exclude-accessibility');
-					title.innerText = el.title;
-					const newItems = items.filter(
-						(i: any) => i[this.apiGroupField] === el.name,
-					);
-
-					if (this.itemsWrapper) this.itemsWrapper.append(title);
-					else this.output.append(title);
-
-					this.jsonItemsRender(newItems);
-				});
-			} else {
-				this.jsonItemsRender(items);
-			}
-
-			this.setResults(this.input.value);
-		} catch (err) {
-			console.error(err);
-
-			this.buildOutputPlaceholder();
+	private buildToggle() {
+		if (this.isOpened) {
+			if (this?.toggle?.ariaExpanded) this.toggle.ariaExpanded = 'true';
+			if (this?.input?.ariaExpanded) this.input.ariaExpanded = 'true';
+		} else {
+			if (this?.toggle?.ariaExpanded) this.toggle.ariaExpanded = 'false';
+			if (this?.input?.ariaExpanded) this.input.ariaExpanded = 'false';
 		}
 
-		this.destroyOutputLoader();
+		this.toggle.addEventListener('click', () => {
+			if (this.isOpened) this.close();
+			else this.open(this.toggle.getAttribute('data-hs-combo-box-toggle'));
+		});
+	}
+
+	private buildToggleClose() {
+		this.toggleClose.addEventListener('click', () => this.close());
+	}
+
+	private buildToggleOpen() {
+		this.toggleOpen.addEventListener('click', () => this.open());
+	}
+
+	private setSelectedByValue(val: string[]) {
+		this.items.forEach((el) => {
+			if (this.isTextExists(el, val))
+				(el as HTMLElement).classList.add('selected');
+			else (el as HTMLElement).classList.remove('selected');
+		});
+	}
+
+	private setValue(val: string) {
+		this.selected = val;
+		this.value = val;
+		this.input.value = val;
+
+		this.fireEvent('select', this.el);
+		dispatch('select.hs.combobox', this.el, this.value);
+	}
+
+	private setItemsVisibility() {
+		if (this.groupingType === 'tabs' && this.selectedGroup !== 'all') {
+			this.items.forEach((item) => {
+				(item as HTMLElement).style.display = 'none';
+			});
+		}
+
+		const items =
+			this.groupingType === 'tabs'
+				? this.selectedGroup === 'all'
+					? this.items
+					: this.items.filter((f: HTMLElement) => {
+							const { group } = JSON.parse(
+								f.getAttribute('data-hs-combo-box-output-item'),
+							);
+
+							return group.name === this.selectedGroup;
+						})
+				: this.items;
+
+		if (this.groupingType === 'tabs' && this.selectedGroup !== 'all') {
+			items.forEach((item) => {
+				(item as HTMLElement).style.display = 'block';
+			});
+		}
+
+		items.forEach((item) => {
+			if (!this.isTextExistsAny(item, this.value))
+				(item as HTMLElement).style.display = 'none';
+			else (item as HTMLElement).style.display = 'block';
+		});
+
+		if (this.groupingType === 'default') {
+			this.output
+				.querySelectorAll('[data-hs-combo-box-group-title]')
+				.forEach((el: HTMLElement) => {
+					const g = el.getAttribute('data-hs-combo-box-group-title');
+					const items = this.items.filter((f: HTMLElement) => {
+						const { group } = JSON.parse(
+							f.getAttribute('data-hs-combo-box-output-item'),
+						);
+
+						return group.name === g && f.style.display === 'block';
+					});
+
+					if (items.length) el.style.display = 'block';
+					else el.style.display = 'none';
+				});
+		}
+	}
+
+	private hasVisibleItems() {
+		return this.items.length
+			? this.items.some((el: HTMLElement) => el.style.display === 'block')
+			: false;
 	}
 
 	private appendItemsToWrapper(item: HTMLElement) {
@@ -772,11 +719,11 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		}
 	}
 
-	private resultItems() {
-		if (!this.items.length) return false;
+	private buildOutputPlaceholder() {
+		if (!this.outputPlaceholder)
+			this.outputPlaceholder = htmlToElement(this.outputEmptyTemplate);
 
-		this.setItemsVisibility();
-		this.setSelectedByValue([this.selected]);
+		this.appendItemsToWrapper(this.outputPlaceholder);
 	}
 
 	private destroyOutputPlaceholder() {
@@ -785,16 +732,19 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		this.outputPlaceholder = null;
 	}
 
-	// Public methods
-	public getCurrentData() {
-		return this.currentData;
+	private resultItems() {
+		if (!this.items.length) return false;
+
+		this.setItemsVisibility();
+		this.setSelectedByValue([this.selected]);
 	}
 
-	public setCurrent() {
-		if (window.$hsComboBoxCollection.length) {
-			window.$hsComboBoxCollection.map((el) => (el.element.isCurrent = false));
+	// Public methods
+	private setValueAndOpen(val: string) {
+		this.value = val;
 
-			this.isCurrent = true;
+		if (this.items.length) {
+			this.setItemsVisibility();
 		}
 	}
 
@@ -821,11 +771,18 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		this.isOpened = true;
 	}
 
-	public close(val?: string | null, data: {} | null = null) {
+	private setValueAndClear(val: string | null) {
+		if (val) this.setValue(val);
+		else this.setValue(this.selected);
+
+		if (this.outputPlaceholder) this.destroyOutputPlaceholder();
+	}
+
+	public close(val?: string | null) {
 		if (this.animationInProcess) return false;
 
 		if (this.preventVisibility) {
-			this.setValueAndClear(val, data);
+			this.setValueAndClear(val);
 
 			if (this.input.value !== '') this.el.classList.add('has-value');
 			else this.el.classList.remove('has-value');
@@ -847,7 +804,7 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		afterTransition(this.output, () => {
 			this.output.style.display = 'none';
 
-			this.setValueAndClear(val, data || null);
+			this.setValueAndClear(val);
 
 			this.animationInProcess = false;
 		});
@@ -880,55 +837,6 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 		}
 	}
 
-	public destroy() {
-		// Remove listeners
-		this.input.removeEventListener('focus', this.onInputFocusListener);
-		this.input.removeEventListener('input', this.onInputInputListener);
-		this.toggle.removeEventListener('click', this.onToggleClickListener);
-		if (this.toggleClose)
-			this.toggleClose.removeEventListener(
-				'click',
-				this.onToggleCloseClickListener,
-			);
-		if (this.toggleOpen)
-			this.toggleOpen.removeEventListener(
-				'click',
-				this.onToggleOpenClickListener,
-			);
-
-		// Remove classes
-		this.el.classList.remove('has-value', 'active');
-		if (this.items.length)
-			this.items.forEach((el) => {
-				(el as HTMLElement).classList.remove('selected');
-				(el as HTMLElement).style.display = '';
-			});
-
-		// Remove attributes
-		this.output.removeAttribute('role');
-		this.output.removeAttribute('tabindex');
-		this.output.removeAttribute('aria-orientation');
-
-		// Remove generated markup
-		if (this.outputLoader) {
-			this.outputLoader.remove();
-			this.outputLoader = null;
-		}
-		if (this.outputPlaceholder) {
-			this.outputPlaceholder.remove();
-			this.outputPlaceholder = null;
-		}
-		if (this.apiUrl) {
-			this.output.innerHTML = '';
-		}
-
-		this.items = [];
-
-		window.$hsComboBoxCollection = window.$hsComboBoxCollection.filter(
-			({ element }) => element.el !== this.el,
-		);
-	}
-
 	// Static methods
 	static getInstance(target: HTMLElement | string, isInstance?: boolean) {
 		const elInCollection = window.$hsComboBoxCollection.find(
@@ -945,24 +853,7 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 	}
 
 	static autoInit() {
-		if (!window.$hsComboBoxCollection) {
-			window.$hsComboBoxCollection = [];
-
-			window.addEventListener('click', (evt) => {
-				const evtTarget = evt.target;
-
-				HSComboBox.closeCurrentlyOpened(evtTarget as HTMLElement);
-			});
-
-			document.addEventListener('keydown', (evt) =>
-				HSComboBox.accessibility(evt),
-			);
-		}
-
-		if (window.$hsComboBoxCollection)
-			window.$hsComboBoxCollection = window.$hsComboBoxCollection.filter(
-				({ element }) => document.contains(element.el),
-			);
+		if (!window.$hsComboBoxCollection) window.$hsComboBoxCollection = [];
 
 		document
 			.querySelectorAll('[data-hs-combo-box]:not(.--prevent-on-load-init)')
@@ -978,6 +869,18 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 					new HSComboBox(el, options);
 				}
 			});
+
+		if (window.$hsComboBoxCollection) {
+			window.addEventListener('click', (evt) => {
+				const evtTarget = evt.target;
+
+				HSComboBox.closeCurrentlyOpened(evtTarget as HTMLElement);
+			});
+
+			document.addEventListener('keydown', (evt) =>
+				HSComboBox.accessibility(evt),
+			);
+		}
 	}
 
 	static close(target: HTMLElement | string) {
@@ -1015,13 +918,13 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 
 		const preparedItems = isReversed
 			? Array.from(
-				output.querySelectorAll(':scope > *:not(.--exclude-accessibility)'),
-			)
-				.filter((el) => (el as HTMLElement).style.display !== 'none')
-				.reverse()
+					output.querySelectorAll(':scope > *:not(.--exclude-accessibility)'),
+				)
+					.filter((el) => (el as HTMLElement).style.display !== 'none')
+					.reverse()
 			: Array.from(
-				output.querySelectorAll(':scope > *:not(.--exclude-accessibility)'),
-			).filter((el) => (el as HTMLElement).style.display !== 'none');
+					output.querySelectorAll(':scope > *:not(.--exclude-accessibility)'),
+				).filter((el) => (el as HTMLElement).style.display !== 'none');
 		const items = preparedItems.filter(
 			(el: any) => !el.classList.contains('disabled'),
 		);
@@ -1155,7 +1058,7 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 			(el) =>
 				!isParentOrElementHidden(el.element.el) &&
 				(evt.target as HTMLElement).closest('[data-hs-combo-box]') ===
-				el.element.el,
+					el.element.el,
 		);
 
 		const link: HTMLAnchorElement = opened.element.el.querySelector(
@@ -1177,10 +1080,9 @@ class HSComboBox extends HSBasePlugin<IComboBoxOptions> implements IComboBox {
 			opened.element.close(
 				!opened.element.preventSelection
 					? (evt.target as HTMLElement)
-						.querySelector('[data-hs-combo-box-value]')
-						.getAttribute('data-hs-combo-box-search-text')
+							.querySelector('[data-hs-combo-box-value]')
+							.getAttribute('data-hs-combo-box-search-text')
 					: null,
-				JSON.parse((evt.target as HTMLElement).getAttribute('data-hs-combo-box-item-stored-data')) ?? null
 			);
 		}
 	}

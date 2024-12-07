@@ -1,6 +1,6 @@
 /*
  * HSCarousel
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
@@ -64,20 +64,6 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 	// Resize events' help variables
 	private resizeContainer: HTMLElement;
 	public resizeContainerWidth: number;
-
-	// Listeners
-	private onPrevClickListener: () => void;
-	private onNextClickListener: () => void;
-	private onContainerScrollListener: () => void;
-	private onElementTouchStartListener: (evt: TouchEvent) => void;
-	private onElementTouchEndListener: (evt: TouchEvent) => void;
-	private onInnerMouseDownListener: (evt: MouseEvent | TouchEvent) => void;
-	private onInnerTouchStartListener: (evt: MouseEvent | TouchEvent) => void;
-	private onDocumentMouseMoveListener: (evt: MouseEvent | TouchEvent) => void;
-	private onDocumentTouchMoveListener: (evt: MouseEvent | TouchEvent) => void;
-	private onDocumentMouseUpListener: () => void;
-	private onDocumentTouchEndListener: () => void;
-	private onDotClickListener: () => void;
 
 	constructor(el: HTMLElement, options?: ICarouselOptions) {
 		super(el, options);
@@ -206,73 +192,6 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 		if (this.dots) this.setCurrentDot();
 	}
 
-	private prevClick() {
-		this.goToPrev();
-		if (this.isAutoPlay) {
-			this.resetTimer();
-			this.setTimer();
-		}
-	}
-
-	private nextClick() {
-		this.goToNext();
-		if (this.isAutoPlay) {
-			this.resetTimer();
-			this.setTimer();
-		}
-	}
-
-	private containerScroll() {
-		clearTimeout(this.isScrolling);
-
-		this.isScrolling = setTimeout(() => {
-			this.setIsSnap();
-		}, 100);
-	}
-
-	private elementTouchStart(evt: TouchEvent) {
-		this.touchX.start = evt.changedTouches[0].screenX;
-	}
-
-	private elementTouchEnd(evt: TouchEvent) {
-		this.touchX.end = evt.changedTouches[0].screenX;
-
-		this.detectDirection();
-	}
-
-	private innerMouseDown(evt: MouseEvent | TouchEvent) {
-		this.handleDragStart(evt);
-	}
-
-	private innerTouchStart(evt: MouseEvent | TouchEvent) {
-		this.handleDragStart(evt);
-	}
-
-	private documentMouseMove(evt: MouseEvent | TouchEvent) {
-		this.handleDragMove(evt);
-	}
-
-	private documentTouchMove(evt: MouseEvent | TouchEvent) {
-		this.handleDragMove(evt);
-	}
-
-	private documentMouseUp() {
-		this.handleDragEnd();
-	}
-
-	private documentTouchEnd() {
-		this.handleDragEnd();
-	}
-
-	private dotClick(ind: number) {
-		this.goTo(ind);
-
-		if (this.isAutoPlay) {
-			this.resetTimer();
-			this.setTimer();
-		}
-	}
-
 	private init() {
 		this.createCollection(window.$hsCarouselCollection, this);
 
@@ -281,19 +200,22 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 
 			if (this.isDraggable && !this.isSnap) this.initDragHandling();
 		}
-
-		if (this.prev) {
-			this.onPrevClickListener = () => this.prevClick();
-
-			this.prev.addEventListener('click', this.onPrevClickListener);
-		}
-
-		if (this.next) {
-			this.onNextClickListener = () => this.nextClick();
-
-			this.next.addEventListener('click', this.onNextClickListener);
-		}
-
+		if (this.prev)
+			this.prev.addEventListener('click', () => {
+				this.goToPrev();
+				if (this.isAutoPlay) {
+					this.resetTimer();
+					this.setTimer();
+				}
+			});
+		if (this.next)
+			this.next.addEventListener('click', () => {
+				this.goToNext();
+				if (this.isAutoPlay) {
+					this.resetTimer();
+					this.setTimer();
+				}
+			});
 		if (this.dots) this.initDots();
 		if (this.info) this.buildInfo();
 		if (this.slides.length) {
@@ -326,22 +248,27 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 		}, 400);
 
 		if (this.isSnap) {
-			this.onContainerScrollListener = () => this.containerScroll();
+			this.container.addEventListener('scroll', () => {
+				clearTimeout(this.isScrolling);
 
-			this.container.addEventListener('scroll', this.onContainerScrollListener);
+				this.isScrolling = setTimeout(() => {
+					this.setIsSnap();
+				}, 100);
+			});
 		}
 
 		this.el.classList.add('init');
 
 		if (!this.isSnap) {
-			this.onElementTouchStartListener = (evt: TouchEvent) =>
-				this.elementTouchStart(evt);
-			this.onElementTouchEndListener = (evt: TouchEvent) =>
-				this.elementTouchEnd(evt);
+			this.el.addEventListener('touchstart', (evt) => {
+				this.touchX.start = evt.changedTouches[0].screenX;
+			});
 
-			this.el.addEventListener('touchstart', this.onElementTouchStartListener);
+			this.el.addEventListener('touchend', (evt) => {
+				this.touchX.end = evt.changedTouches[0].screenX;
 
-			this.el.addEventListener('touchend', this.onElementTouchEndListener);
+				this.detectDirection();
+			});
 		}
 
 		this.observeResize();
@@ -350,31 +277,24 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 	private initDragHandling(): void {
 		const scrollableElement = this.inner;
 
-		this.onInnerMouseDownListener = (evt) => this.innerMouseDown(evt);
-		this.onInnerTouchStartListener = (evt) => this.innerTouchStart(evt);
-		this.onDocumentMouseMoveListener = (evt) => this.documentMouseMove(evt);
-		this.onDocumentTouchMoveListener = (evt) => this.documentTouchMove(evt);
-		this.onDocumentMouseUpListener = () => this.documentMouseUp();
-		this.onDocumentTouchEndListener = () => this.documentTouchEnd();
-
 		if (scrollableElement) {
 			scrollableElement.addEventListener(
 				'mousedown',
-				this.onInnerMouseDownListener,
+				this.handleDragStart.bind(this),
 			);
 			scrollableElement.addEventListener(
 				'touchstart',
-				this.onInnerTouchStartListener,
+				this.handleDragStart.bind(this),
 				{ passive: true },
 			);
 
-			document.addEventListener('mousemove', this.onDocumentMouseMoveListener);
-			document.addEventListener('touchmove', this.onDocumentTouchMoveListener, {
+			document.addEventListener('mousemove', this.handleDragMove.bind(this));
+			document.addEventListener('touchmove', this.handleDragMove.bind(this), {
 				passive: false,
 			});
 
-			document.addEventListener('mouseup', this.onDocumentMouseUpListener);
-			document.addEventListener('touchend', this.onDocumentTouchEndListener);
+			document.addEventListener('mouseup', this.handleDragEnd.bind(this));
+			document.addEventListener('touchend', this.handleDragEnd.bind(this));
 		}
 	}
 
@@ -622,9 +542,14 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 	}
 
 	private singleDotEvents(dot: HTMLElement, ind: number) {
-		this.onDotClickListener = () => this.dotClick(ind);
+		dot.addEventListener('click', () => {
+			this.goTo(ind);
 
-		dot.addEventListener('click', this.onDotClickListener);
+			if (this.isAutoPlay) {
+				this.resetTimer();
+				this.setTimer();
+			}
+		});
 	}
 
 	private observeResize() {
@@ -797,6 +722,19 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 		if (end > start) this.goToPrev();
 	}
 
+	// Public methods
+	public recalculateWidth() {
+		this.sliderWidth = this.inner.parentElement.getBoundingClientRect().width;
+
+		this.calculateWidth();
+
+		if (
+			this.sliderWidth !==
+			this.inner.parentElement.getBoundingClientRect().width
+		)
+			this.recalculateWidth();
+	}
+
 	private calculateTransform(currentIdx?: number | undefined): void {
 		if (currentIdx !== undefined) this.currentIndex = currentIdx;
 		if (
@@ -854,26 +792,6 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 		this.inner.style.transform = this.isRTL
 			? `translate(${-val}px, 0px)`
 			: `translate(${val}px, 0px)`;
-	}
-
-	private setIndex(i: number) {
-		this.currentIndex = i;
-
-		this.addCurrentClass();
-		if (!this.isInfiniteLoop) this.addDisabledClass();
-	}
-
-	// Public methods
-	public recalculateWidth() {
-		this.sliderWidth = this.inner.parentElement.getBoundingClientRect().width;
-
-		this.calculateWidth();
-
-		if (
-			this.sliderWidth !==
-			this.inner.parentElement.getBoundingClientRect().width
-		)
-			this.recalculateWidth();
 	}
 
 	public goToPrev() {
@@ -955,82 +873,11 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 		if (this.dots) this.setCurrentDot();
 	}
 
-	public destroy() {
-		// Remove classes
-		if (this.loadingClassesAdd) {
-			if (typeof this.loadingClassesAdd === 'string')
-				this.inner.classList.remove(this.loadingClassesAdd);
-			else this.inner.classList.remove(...this.loadingClassesAdd);
-		}
-		if (this.inner && this.afterLoadingClassesAdd) {
-			setTimeout(() => {
-				if (typeof this.afterLoadingClassesAdd === 'string')
-					this.inner.classList.remove(this.afterLoadingClassesAdd);
-				else this.inner.classList.remove(...this.afterLoadingClassesAdd);
-			});
-		}
-		this.el.classList.remove('init');
-		this.inner.classList.remove('dragging');
-		this.slides.forEach((el) => el.classList.remove('active'));
-		if (this?.dotsItems?.length)
-			this.dotsItems.forEach((el) => el.classList.remove('active'));
-		this.prev.classList.remove('disabled');
-		this.next.classList.remove('disabled');
+	private setIndex(i: number) {
+		this.currentIndex = i;
 
-		// Remove styles
-		this.inner.style.width = '';
-		this.slides.forEach((el) => (el.style.width = ''));
-		if (!this.isSnap) this.inner.style.transform = '';
-		if (this.isAutoHeight) this.inner.style.height = '';
-
-		// Remove listeners
-		this.prev.removeEventListener('click', this.onPrevClickListener);
-		this.next.removeEventListener('click', this.onNextClickListener);
-		this.container.removeEventListener(
-			'scroll',
-			this.onContainerScrollListener,
-		);
-		this.el.removeEventListener('touchstart', this.onElementTouchStartListener);
-		this.el.removeEventListener('touchend', this.onElementTouchEndListener);
-		this.inner.removeEventListener('mousedown', this.onInnerMouseDownListener);
-		this.inner.removeEventListener(
-			'touchstart',
-			this.onInnerTouchStartListener,
-		);
-		document.removeEventListener('mousemove', this.onDocumentMouseMoveListener);
-		document.removeEventListener('touchmove', this.onDocumentTouchMoveListener);
-		document.removeEventListener('mouseup', this.onDocumentMouseUpListener);
-		document.removeEventListener('touchend', this.onDocumentTouchEndListener);
-		this.inner.querySelectorAll('a:not(.prevented-click)').forEach((el) => {
-			el.classList.remove('prevented-click');
-			el.removeEventListener('click', this.removeClickEventWhileDragging);
-		});
-		if (
-			this?.dotsItems?.length ||
-			this.dots.querySelectorAll(':scope > *').length
-		) {
-			const dots = this?.dotsItems || this.dots.querySelectorAll(':scope > *');
-
-			dots.forEach((el) =>
-				el.removeEventListener('click', this.onDotClickListener),
-			);
-
-			this.dots.innerHTML = null;
-		}
-
-		// Remove elements
-		this.inner.querySelector('.hs-snap-before').remove();
-		this.inner.querySelector('.hs-snap-after').remove();
-
-		this.dotsItems = null;
-
-		this.isDragging = false;
-		this.dragStartX = null;
-		this.initialTranslateX = null;
-
-		window.$hsCarouselCollection = window.$hsCarouselCollection.filter(
-			({ element }) => element.el !== this.el,
-		);
+		this.addCurrentClass();
+		if (!this.isInfiniteLoop) this.addDisabledClass();
 	}
 
 	// Static methods
@@ -1050,11 +897,6 @@ class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 
 	static autoInit() {
 		if (!window.$hsCarouselCollection) window.$hsCarouselCollection = [];
-
-		if (window.$hsCarouselCollection)
-			window.$hsCarouselCollection = window.$hsCarouselCollection.filter(
-				({ element }) => document.contains(element.el),
-			);
 
 		document
 			.querySelectorAll('[data-hs-carousel]:not(.--prevent-on-load-init)')

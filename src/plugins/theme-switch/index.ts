@@ -1,15 +1,16 @@
 /*
  * HSThemeSwitch
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
  */
-
-import { IThemeSwitchOptions, IThemeSwitch } from '../theme-switch/interfaces';
+import {
+	IThemeSwitchOptions,
+	IThemeSwitch,
+} from '../theme-switch/interfaces';
 
 import HSBasePlugin from '../base-plugin';
-
 import { ICollectionItem } from '../../interfaces';
 
 class HSThemeSwitch
@@ -17,16 +18,9 @@ class HSThemeSwitch
 	implements IThemeSwitch
 {
 	public theme: string;
-	public type: 'change' | 'click';
-	private themeSet: string[];
+	private readonly themeSet: string[];
 
-	private onElementChangeListener: (evt: Event) => void;
-	private onElementClickListener: () => void;
-
-	constructor(
-		el: HTMLElement | HTMLInputElement,
-		options?: IThemeSwitchOptions,
-	) {
+	constructor(el: HTMLElement, options?: IThemeSwitchOptions) {
 		super(el, options);
 
 		const data = el.getAttribute('data-hs-theme-switch');
@@ -38,55 +32,20 @@ class HSThemeSwitch
 
 		this.theme =
 			concatOptions?.theme || localStorage.getItem('hs_theme') || 'default';
-		this.type = concatOptions?.type || 'change';
 		this.themeSet = ['light', 'dark', 'default'];
 
 		this.init();
-	}
-
-	private elementChange(evt: Event) {
-		const theme = (evt.target as HTMLInputElement).checked ? 'dark' : 'default';
-
-		this.setAppearance(theme);
-		this.toggleObserveSystemTheme();
-	}
-
-	private elementClick(theme: string) {
-		this.setAppearance(theme);
-		this.toggleObserveSystemTheme();
 	}
 
 	private init() {
 		this.createCollection(window.$hsThemeSwitchCollection, this);
 
 		if (this.theme !== 'default') this.setAppearance();
-
-		if (this.type === 'click') this.buildSwitchTypeOfClick();
-		else this.buildSwitchTypeOfChange();
-	}
-
-	private buildSwitchTypeOfChange() {
-		(this.el as HTMLInputElement).checked = this.theme === 'dark';
-
-		this.toggleObserveSystemTheme();
-
-		this.onElementChangeListener = (evt) => this.elementChange(evt);
-
-		this.el.addEventListener('change', this.onElementChangeListener);
-	}
-
-	private buildSwitchTypeOfClick() {
-		const theme = this.el.getAttribute('data-hs-theme-click-value');
-
-		this.toggleObserveSystemTheme();
-
-		this.onElementClickListener = () => this.elementClick(theme);
-
-		this.el.addEventListener('click', this.onElementClickListener);
 	}
 
 	private setResetStyles() {
 		const style = document.createElement('style');
+
 		style.innerText = `*{transition: unset !important;}`;
 		style.setAttribute('data-hs-appearance-onload-styles', '');
 
@@ -108,12 +67,6 @@ class HSThemeSwitch
 		window.matchMedia('(prefers-color-scheme: dark)').removeEventListener;
 	}
 
-	private toggleObserveSystemTheme() {
-		if (localStorage.getItem('hs_theme') === 'auto')
-			this.addSystemThemeObserver();
-		else this.removeSystemThemeObserver();
-	}
-
 	// Public methods
 	public setAppearance(
 		theme = this.theme,
@@ -124,7 +77,6 @@ class HSThemeSwitch
 		const resetStyles = this.setResetStyles();
 
 		if (isSaveToLocalStorage) localStorage.setItem('hs_theme', theme);
-
 		if (theme === 'auto')
 			theme = window.matchMedia('(prefers-color-scheme: dark)').matches
 				? 'dark'
@@ -141,40 +93,25 @@ class HSThemeSwitch
 			);
 	}
 
-	public destroy() {
-		// Clear listeners
-		if (this.type === 'change')
-			this.el.removeEventListener('change', this.onElementChangeListener);
-		if (this.type === 'click')
-			this.el.removeEventListener('click', this.onElementClickListener);
-
-		window.$hsThemeSwitchCollection = window.$hsThemeSwitchCollection.filter(
-			({ element }) => element.el !== this.el,
-		);
-	}
-
 	// Static methods
-	static getInstance(target: HTMLElement | string, isInstance?: boolean) {
+	static getInstance(target: HTMLElement | string) {
 		const elInCollection = window.$hsThemeSwitchCollection.find(
 			(el) =>
 				el.element.el ===
 				(typeof target === 'string' ? document.querySelector(target) : target),
 		);
 
-		return elInCollection
-			? isInstance
-				? elInCollection
-				: elInCollection.element.el
-			: null;
+		return elInCollection ? elInCollection.element : null;
 	}
 
 	static autoInit() {
 		if (!window.$hsThemeSwitchCollection) window.$hsThemeSwitchCollection = [];
 
-		if (window.$hsThemeSwitchCollection)
-			window.$hsThemeSwitchCollection = window.$hsThemeSwitchCollection.filter(
-				({ element }) => document.contains(element.el),
-			);
+		const toggleObserveSystemTheme = (el: HSThemeSwitch) => {
+			if (localStorage.getItem('hs_theme') === 'auto')
+				el.addSystemThemeObserver();
+			else el.removeSystemThemeObserver();
+		};
 
 		document
 			.querySelectorAll('[data-hs-theme-switch]:not(.--prevent-on-load-init)')
@@ -183,8 +120,22 @@ class HSThemeSwitch
 					!window.$hsThemeSwitchCollection.find(
 						(elC) => (elC?.element?.el as HTMLElement) === el,
 					)
-				)
-					new HSThemeSwitch(el, { type: 'change' });
+				) {
+					const switchTheme = new HSThemeSwitch(el);
+					(switchTheme.el as HTMLInputElement).checked =
+						switchTheme.theme === 'dark';
+
+					toggleObserveSystemTheme(switchTheme);
+
+					switchTheme.el.addEventListener('change', (evt) => {
+						const theme = (evt.target as HTMLInputElement).checked
+							? 'dark'
+							: 'default';
+						switchTheme.setAppearance(theme);
+
+						toggleObserveSystemTheme(switchTheme);
+					});
+				}
 			});
 
 		document
@@ -192,12 +143,16 @@ class HSThemeSwitch
 				'[data-hs-theme-click-value]:not(.--prevent-on-load-init)',
 			)
 			.forEach((el: HTMLElement) => {
-				if (
-					!window.$hsThemeSwitchCollection.find(
-						(elC) => (elC?.element?.el as HTMLElement) === el,
-					)
-				)
-					new HSThemeSwitch(el, { type: 'click' });
+				const theme = el.getAttribute('data-hs-theme-click-value');
+				const switchTheme = new HSThemeSwitch(el);
+
+				toggleObserveSystemTheme(switchTheme);
+
+				switchTheme.el.addEventListener('click', () => {
+					switchTheme.setAppearance(theme);
+
+					toggleObserveSystemTheme(switchTheme);
+				});
 			});
 	}
 }

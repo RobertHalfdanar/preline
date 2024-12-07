@@ -15,6 +15,4 @@ export interface IDataTableOptions extends Config {
 
 export interface IDataTable {
 	options?: IDataTableOptions;
-
-	destroy(): void;
 }

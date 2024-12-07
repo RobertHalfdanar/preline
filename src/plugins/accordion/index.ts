@@ -1,12 +1,12 @@
 /*
  * HSAccordion
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
  */
 
-import { getClassProperty, stringToBoolean, dispatch, afterTransition } from '../../utils';
+import { dispatch, afterTransition } from '../../utils';
 
 import {
 	IAccordionOptions,
@@ -20,14 +20,12 @@ import { ICollectionItem } from '../../interfaces';
 
 class HSAccordion
 	extends HSBasePlugin<IAccordionOptions>
-	implements IAccordion {
-	private toggle: HTMLElement | null;
+	implements IAccordion
+{
+	private readonly toggle: HTMLElement | null;
 	public content: HTMLElement | null;
 	private group: HTMLElement | null;
 	private isAlwaysOpened: boolean;
-	private isToggleStopPropagated: boolean;
-
-	private onToggleClickListener: (evt: Event) => void;
 
 	static selectable: IAccordionTreeView[];
 
@@ -38,32 +36,24 @@ class HSAccordion
 		this.content = this.el.querySelector('.hs-accordion-content') || null;
 		this.update();
 
-		this.isToggleStopPropagated = stringToBoolean(
-			getClassProperty(this.toggle, '--stop-propagation', 'false') || 'false',
-		);
-
 		if (this.toggle && this.content) this.init();
 	}
 
 	private init() {
 		this.createCollection(window.$hsAccordionCollection, this);
 
-		this.onToggleClickListener = (evt: Event) => this.toggleClick(evt);
+		this.toggle.addEventListener('click', (evt: Event) => {
+			evt.stopPropagation();
 
-		this.toggle.addEventListener('click', this.onToggleClickListener);
+			if (this.el.classList.contains('active')) {
+				this.hide();
+			} else {
+				this.show();
+			}
+		});
 	}
 
 	// Public methods
-	public toggleClick(evt: Event) {
-		if (this.isToggleStopPropagated) evt.stopPropagation();
-
-		if (this.el.classList.contains('active')) {
-			this.hide();
-		} else {
-			this.show();
-		}
-	}
-
 	public show() {
 		if (
 			this.group &&
@@ -89,14 +79,14 @@ class HSAccordion
 		this.content.style.height = '0';
 		setTimeout(() => {
 			this.content.style.height = `${this.content.scrollHeight}px`;
+		});
 
-			afterTransition(this.content, () => {
-				this.content.style.display = 'block';
-				this.content.style.height = '';
+		afterTransition(this.content, () => {
+			this.content.style.display = 'block';
+			this.content.style.height = '';
 
-				this.fireEvent('open', this.el);
-				dispatch('open.hs.accordion', this.el, this.el);
-			});
+			this.fireEvent('open', this.el);
+			dispatch('open.hs.accordion', this.el, this.el);
 		});
 	}
 
@@ -136,30 +126,6 @@ class HSAccordion
 
 			return el;
 		});
-	}
-
-	public destroy() {
-		if (HSAccordion?.selectable?.length) {
-			HSAccordion.selectable.forEach((item) => {
-				item.listeners.forEach(({ el, listener }) => {
-					el.removeEventListener('click', listener);
-				});
-			});
-		}
-
-		if (this.onToggleClickListener) {
-			this.toggle.removeEventListener('click', this.onToggleClickListener);
-		}
-
-		this.toggle = null;
-		this.content = null;
-		this.group = null;
-
-		this.onToggleClickListener = null;
-
-		window.$hsAccordionCollection = window.$hsAccordionCollection.filter(
-			({ element }) => element.el !== this.el,
-		);
 	}
 
 	// Static methods
@@ -208,12 +174,6 @@ class HSAccordion
 	static autoInit() {
 		if (!window.$hsAccordionCollection) window.$hsAccordionCollection = [];
 
-		if (window.$hsAccordionCollection) {
-			window.$hsAccordionCollection = window.$hsAccordionCollection.filter(
-				({ element }) => document.contains(element.el),
-			);
-		}
-
 		document
 			.querySelectorAll('.hs-accordion:not(.--prevent-on-load-init)')
 			.forEach((el: HTMLElement) => {
@@ -225,16 +185,6 @@ class HSAccordion
 					new HSAccordion(el);
 			});
 	}
-
-	static onSelectableClick = (
-		evt: Event,
-		item: IAccordionTreeView,
-		el: HTMLElement,
-	) => {
-		evt.stopPropagation();
-
-		HSAccordion.toggleSelected(item, el);
-	};
 
 	static treeView() {
 		if (!document.querySelectorAll('.hs-accordion-treeview-root').length)
@@ -253,7 +203,6 @@ class HSAccordion
 				this.selectable.push({
 					el,
 					options: { ...options },
-					listeners: [],
 				});
 			});
 
@@ -263,12 +212,11 @@ class HSAccordion
 
 				el.querySelectorAll('.hs-accordion-selectable').forEach(
 					(_el: HTMLElement) => {
-						const listener = (evt: Event) =>
-							this.onSelectableClick(evt, item, _el);
+						_el.addEventListener('click', (evt: Event) => {
+							evt.stopPropagation();
 
-						_el.addEventListener('click', listener);
-
-						item.listeners.push({ el: _el, listener });
+							this.toggleSelected(item, _el);
+						});
 					},
 				);
 			});

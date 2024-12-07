@@ -6,7 +6,4 @@ export interface ICopyMarkupOptions {
 
 export interface ICopyMarkup {
 	options?: ICopyMarkupOptions;
-
-	delete(target: HTMLElement): void;
-	destroy(): void;
 }

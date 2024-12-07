@@ -1,1 +1,1 @@
-export type TTooltipOptionsScope  = 'parent' | 'window';
+// no types

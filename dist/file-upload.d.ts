@@ -25,7 +25,6 @@ export interface IFileUploadOptions extends DropzoneOptions {
 }
 export interface IFileUpload {
 	options?: IFileUploadOptions;
-	destroy(): void;
 }
 declare class HSFileUpload extends HSBasePlugin<IFileUploadOptions> implements IFileUpload {
 	private concatOptions;
@@ -33,14 +32,9 @@ declare class HSFileUpload extends HSBasePlugin<IFileUploadOptions> implements I
 	private extensions;
 	private singleton;
 	dropzone: Dropzone | null;
-	private onReloadButtonClickListener;
-	private onTempFileInputChangeListener;
 	constructor(el: HTMLElement, options?: IFileUploadOptions, events?: {});
-	private tempFileInputChange;
-	private reloadButtonClick;
 	private init;
 	private initDropzone;
-	destroy(): void;
 	private onAddFile;
 	private previewAccepted;
 	private onRemoveFile;

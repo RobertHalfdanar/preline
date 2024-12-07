@@ -1,6 +1,6 @@
 /*
  * HSTextareaAutoHeight
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
@@ -20,8 +20,6 @@ class HSTextareaAutoHeight
 {
 	private readonly defaultHeight: number;
 
-	private onElementInputListener: () => void;
-
 	constructor(el: HTMLTextAreaElement, options?: ITextareaAutoHeightOptions) {
 		super(el, options);
 
@@ -39,10 +37,6 @@ class HSTextareaAutoHeight
 		this.init();
 	}
 
-	private elementInput() {
-		this.textareaSetHeight(3);
-	}
-
 	private init() {
 		this.createCollection(window.$hsTextareaAutoHeightCollection, this);
 
@@ -53,9 +47,7 @@ class HSTextareaAutoHeight
 		if (this.isParentHidden()) this.callbackAccordingToType();
 		else this.textareaSetHeight(3);
 
-		this.onElementInputListener = () => this.elementInput();
-
-		this.el.addEventListener('input', this.onElementInputListener);
+		this.el.addEventListener('input', () => this.textareaSetHeight(3));
 	}
 
 	private textareaSetHeight(offsetTop = 0) {
@@ -75,34 +67,17 @@ class HSTextareaAutoHeight
 	}
 
 	private isParentHidden() {
-		return (
-			this.el.closest('.hs-collapse') ||
-			this.el.closest('.hs-overlay') ||
-			this.el.closest('[role="tabpanel"]')
-		);
+		return this.el.closest('.hs-collapse') || this.el.closest('.hs-overlay');
 	}
 
 	private parentType(): string | boolean {
 		if (this.el.closest('.hs-collapse')) return 'collapse';
 		else if (this.el.closest('.hs-overlay')) return 'overlay';
-		else if (this.el.closest('[role="tabpanel"]')) return 'tabs';
 		else return false;
 	}
 
 	private callbackAccordingToType() {
-		if (this.parentType() === 'tabs') {
-			const tabId = this.el.closest('[role="tabpanel"]')?.id;
-			const tab = document.querySelector(`[data-hs-tab="#${tabId}"]`);
-			const tabs = tab.closest('[role="tablist"]');
-			const { element } =
-				(window.HSTabs as any).getInstance(tabs, true) || null;
-
-			element.on('change', () => {
-				if (!this.el) return false;
-
-				this.textareaSetHeight(3);
-			});
-		} else if (this.parentType() === 'collapse') {
+		if (this.parentType() === 'collapse') {
 			const collapseId = this.el.closest('.hs-collapse').id;
 			const { element } = (window.HSCollapse as any).getInstance(
 				`[data-hs-collapse="#${collapseId}"]`,
@@ -128,17 +103,6 @@ class HSTextareaAutoHeight
 		} else return false;
 	}
 
-	// Public methods
-	public destroy() {
-		// Remove listeners
-		this.el.removeEventListener('input', this.onElementInputListener);
-
-		window.$hsTextareaAutoHeightCollection =
-			window.$hsTextareaAutoHeightCollection.filter(
-				({ element }) => element.el !== this.el,
-			);
-	}
-
 	// Static method
 	static getInstance(
 		target: HTMLTextAreaElement | string,
@@ -160,12 +124,6 @@ class HSTextareaAutoHeight
 	static autoInit() {
 		if (!window.$hsTextareaAutoHeightCollection)
 			window.$hsTextareaAutoHeightCollection = [];
-
-		if (window.$hsTextareaAutoHeightCollection)
-			window.$hsTextareaAutoHeightCollection =
-				window.$hsTextareaAutoHeightCollection.filter(({ element }) =>
-					document.contains(element.el),
-				);
 
 		document
 			.querySelectorAll(

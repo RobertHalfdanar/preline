@@ -19,7 +19,6 @@ export interface IInputNumberOptions {
 }
 export interface IInputNumber {
 	options?: IInputNumberOptions;
-	destroy(): void;
 }
 declare class HSInputNumber extends HSBasePlugin<IInputNumberOptions> implements IInputNumber {
 	private readonly input;
@@ -29,13 +28,7 @@ declare class HSInputNumber extends HSBasePlugin<IInputNumberOptions> implements
 	private readonly minInputValue;
 	private readonly maxInputValue;
 	private readonly step;
-	private onInputInputListener;
-	private onIncrementClickListener;
-	private onDecrementClickListener;
 	constructor(el: HTMLElement, options?: IInputNumberOptions);
-	private inputInput;
-	private incrementClick;
-	private decrementClick;
 	private init;
 	private checkIsNumberAndConvert;
 	private cleanAndExtractNumber;
@@ -46,7 +39,6 @@ declare class HSInputNumber extends HSBasePlugin<IInputNumberOptions> implements
 	private changeValue;
 	private disableButtons;
 	private enableButtons;
-	destroy(): void;
 	static getInstance(target: HTMLElement | string, isInstance?: boolean): HSInputNumber | {
 		id: number;
 		element: HSInputNumber;

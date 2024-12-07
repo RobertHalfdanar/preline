@@ -1,5 +1,3 @@
-import { VirtualElement } from '@popperjs/core';
-
 export interface IBasePlugin<O, E> {
 	el: E;
 	options?: O;
@@ -23,7 +21,6 @@ export interface IDropdown {
 	open(): void;
 	close(isAnimated: boolean): void;
 	forceClearState(): void;
-	destroy(): void;
 }
 export interface IHTMLElementPopper extends HTMLElement {
 	_popper: any;
@@ -35,49 +32,29 @@ declare class HSDropdown extends HSBasePlugin<{}, IHTMLElementPopper> implements
 	menu: HTMLElement | null;
 	private eventMode;
 	private closeMode;
-	private hasAutofocus;
 	private animationInProcess;
-	private onElementMouseEnterListener;
-	private onElementMouseLeaveListener;
-	private onToggleClickListener;
-	private onToggleContextMenuListener;
-	private onCloserClickListener;
 	constructor(el: IHTMLElementPopper, options?: {}, events?: {});
-	private elementMouseEnter;
-	private elementMouseLeave;
-	private toggleClick;
-	private toggleContextMenu;
-	private closerClick;
 	private init;
 	resizeHandler(): void;
 	private buildToggle;
 	private buildMenu;
 	private buildClosers;
-	private getScrollbarSize;
-	private onContextMenuHandler;
 	private onClickHandler;
 	private onMouseEnterHandler;
 	private onMouseLeaveHandler;
 	private destroyPopper;
 	private absoluteStrategyModifiers;
-	private focusElement;
-	private setupPopper;
-	private selectCheckbox;
-	private selectRadio;
-	calculatePopperPosition(target?: VirtualElement | HTMLElement): import("@popperjs/core").Placement;
-	open(target?: VirtualElement | HTMLElement): boolean;
+	open(): boolean;
 	close(isAnimated?: boolean): boolean;
 	forceClearState(): void;
-	destroy(): void;
 	static getInstance(target: HTMLElement | string, isInstance?: boolean): ICollectionItem<HSDropdown> | IHTMLElementPopper;
 	static autoInit(): void;
 	static open(target: HTMLElement): void;
 	static close(target: HTMLElement): void;
 	static accessibility(evt: KeyboardEvent): void;
 	static onEscape(evt: KeyboardEvent): void;
-	static onEnter(evt: KeyboardEvent): boolean;
+	static onEnter(evt: KeyboardEvent): void;
 	static onArrow(isArrowUp?: boolean): boolean;
-	static onArrowX(evt: KeyboardEvent, direction: "right" | "left"): boolean;
 	static onStartEnd(isStart?: boolean): boolean;
 	static onFirstLetter(code: string): boolean;
 	static closeCurrentlyOpened(evtTarget?: HTMLElement | null, isAnimated?: boolean): void;

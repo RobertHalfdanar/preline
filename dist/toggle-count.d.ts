@@ -26,7 +26,6 @@ export interface IToggleCount {
 	options?: IToggleCountOptions;
 	countUp(): void;
 	countDown(): void;
-	destroy(): void;
 }
 declare class HSToggleCount extends HSBasePlugin<IToggleCountOptions> implements IToggleCount {
 	private readonly target;
@@ -34,15 +33,12 @@ declare class HSToggleCount extends HSBasePlugin<IToggleCountOptions> implements
 	private readonly max;
 	private readonly duration;
 	private isChecked;
-	private onToggleChangeListener;
 	constructor(el: HTMLElement, options?: IToggleCountOptions);
-	private toggleChange;
 	private init;
 	private toggle;
 	private animate;
 	countUp(): void;
 	countDown(): void;
-	destroy(): void;
 	static getInstance(target: HTMLElement | string, isInstance?: boolean): HSToggleCount | ICollectionItem<HSToggleCount>;
 	static autoInit(): void;
 }

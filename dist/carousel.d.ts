@@ -41,7 +41,6 @@ export interface ICarousel {
 	goToPrev(): void;
 	goToNext(): void;
 	goTo(i: number): void;
-	destroy(): void;
 }
 declare class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICarousel {
 	private currentIndex;
@@ -80,32 +79,8 @@ declare class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICaro
 	private readonly touchX;
 	private resizeContainer;
 	resizeContainerWidth: number;
-	private onPrevClickListener;
-	private onNextClickListener;
-	private onContainerScrollListener;
-	private onElementTouchStartListener;
-	private onElementTouchEndListener;
-	private onInnerMouseDownListener;
-	private onInnerTouchStartListener;
-	private onDocumentMouseMoveListener;
-	private onDocumentTouchMoveListener;
-	private onDocumentMouseUpListener;
-	private onDocumentTouchEndListener;
-	private onDotClickListener;
 	constructor(el: HTMLElement, options?: ICarouselOptions);
 	private setIsSnap;
-	private prevClick;
-	private nextClick;
-	private containerScroll;
-	private elementTouchStart;
-	private elementTouchEnd;
-	private innerMouseDown;
-	private innerTouchStart;
-	private documentMouseMove;
-	private documentTouchMove;
-	private documentMouseUp;
-	private documentTouchEnd;
-	private dotClick;
 	private init;
 	private initDragHandling;
 	private getTranslateXValue;
@@ -136,14 +111,13 @@ declare class HSCarousel extends HSBasePlugin<ICarouselOptions> implements ICaro
 	private setTimer;
 	private resetTimer;
 	private detectDirection;
+	recalculateWidth(): void;
 	private calculateTransform;
 	private setTranslate;
-	private setIndex;
-	recalculateWidth(): void;
 	goToPrev(): void;
 	goToNext(): void;
 	goTo(i: number): void;
-	destroy(): void;
+	private setIndex;
 	static getInstance(target: HTMLElement | string, isInstance?: boolean): HSCarousel | ICollectionItem<HSCarousel>;
 	static autoInit(): void;
 }

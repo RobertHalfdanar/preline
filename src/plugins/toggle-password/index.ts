@@ -1,6 +1,6 @@
 /*
  * HSTogglePassword
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
@@ -29,8 +29,6 @@ class HSTogglePassword
 	private isShown: boolean;
 	private isMultiple: boolean;
 	private eventType: string;
-
-	private onElementActionListener: () => void;
 
 	constructor(el: HTMLElement, options?: ITogglePasswordOptions) {
 		super(el, options);
@@ -72,17 +70,6 @@ class HSTogglePassword
 		if (this.target) this.init();
 	}
 
-	private elementAction() {
-		if (this.isShown) {
-			this.hide();
-		} else {
-			this.show();
-		}
-
-		this.fireEvent('toggle', this.target);
-		dispatch('toggle.hs.toggle-select', this.el, this.target);
-	}
-
 	private init() {
 		this.createCollection(window.$hsTogglePasswordCollection, this);
 
@@ -92,9 +79,16 @@ class HSTogglePassword
 			this.show();
 		}
 
-		this.onElementActionListener = () => this.elementAction();
+		this.el.addEventListener(this.eventType, () => {
+			if (this.isShown) {
+				this.hide();
+			} else {
+				this.show();
+			}
 
-		this.el.addEventListener(this.eventType, this.onElementActionListener);
+			this.fireEvent('toggle', this.target);
+			dispatch('toggle.hs.toggle-select', this.el, this.target);
+		});
 	}
 
 	private getMultipleToggles(): HSTogglePassword[] {
@@ -154,32 +148,6 @@ class HSTogglePassword
 		});
 	}
 
-	public destroy() {
-		// Remove classes
-		if (this.isMultiple) {
-			this.el
-				.closest('[data-hs-toggle-password-group]')
-				.classList.remove('active');
-		} else {
-			this.el.classList.remove('active');
-		}
-
-		// Remove attributes
-		(this.target as HTMLInputElement[]).forEach((el) => {
-			(el as HTMLInputElement).type = 'password';
-		});
-
-		// Remove listeners
-		this.el.removeEventListener(this.eventType, this.onElementActionListener);
-
-		this.isShown = false;
-
-		window.$hsTogglePasswordCollection =
-			window.$hsTogglePasswordCollection.filter(
-				({ element }) => element.el !== this.el,
-			);
-	}
-
 	// Static methods
 	static getInstance(target: HTMLElement | string, isInstance?: boolean) {
 		const elInCollection = window.$hsTogglePasswordCollection.find(
@@ -198,12 +166,6 @@ class HSTogglePassword
 	static autoInit() {
 		if (!window.$hsTogglePasswordCollection)
 			window.$hsTogglePasswordCollection = [];
-
-		if (window.$hsTogglePasswordCollection)
-			window.$hsTogglePasswordCollection =
-				window.$hsTogglePasswordCollection.filter(({ element }) =>
-					document.contains(element.el),
-				);
 
 		document
 			.querySelectorAll(

@@ -21,8 +21,10 @@ export interface ICarousel {
 	options?: ICarouselOptions;
 
 	recalculateWidth(): void;
+
 	goToPrev(): void;
+
 	goToNext(): void;
+
 	goTo(i: number): void;
-	destroy(): void;
 }

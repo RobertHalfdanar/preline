@@ -30,7 +30,6 @@ export interface IRangeSliderOptions extends Options {
 }
 export interface IRangeSlider {
 	options?: IRangeSliderOptions;
-	destroy(): void;
 }
 declare class HSRangeSlider extends HSBasePlugin<IRangeSliderOptions> implements IRangeSlider {
 	private readonly concatOptions;
@@ -44,7 +43,6 @@ declare class HSRangeSlider extends HSBasePlugin<IRangeSliderOptions> implements
 	private prefixOrPostfixFormatter;
 	private thousandsSeparatorAndDecimalPointsFormatter;
 	private setDisabled;
-	destroy(): void;
 	static getInstance(target: HTMLElement | string, isInstance?: boolean): HTMLElement | ICollectionItem<HSRangeSlider>;
 	static autoInit(): void;
 	static on(evt: string, target: HTMLElement, cb: Function): void;

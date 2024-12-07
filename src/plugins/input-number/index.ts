@@ -1,6 +1,6 @@
 /*
  * HSInputNumber
- * @version: 2.6.0
+ * @version: 2.5.1
  * @author: Preline Labs Ltd.
  * @license: Licensed under MIT and Preline UI Fair Use License (https://preline.co/docs/license.html)
  * Copyright 2024 Preline Labs Ltd.
@@ -8,7 +8,10 @@
 
 import { dispatch } from '../../utils';
 
-import { IInputNumberOptions, IInputNumber } from '../input-number/interfaces';
+import {
+	IInputNumberOptions,
+	IInputNumber,
+} from '../input-number/interfaces';
 
 import HSBasePlugin from '../base-plugin';
 
@@ -23,10 +26,6 @@ class HSInputNumber
 	private readonly minInputValue: number | null;
 	private readonly maxInputValue: number | null;
 	private readonly step: number;
-
-	private onInputInputListener: () => void;
-	private onIncrementClickListener: () => void;
-	private onDecrementClickListener: () => void;
 
 	constructor(el: HTMLElement, options?: IInputNumberOptions) {
 		super(el, options);
@@ -56,18 +55,6 @@ class HSInputNumber
 				: 1;
 
 		this.init();
-	}
-
-	private inputInput() {
-		this.changeValue();
-	}
-
-	private incrementClick() {
-		this.changeValue('increment');
-	}
-
-	private decrementClick() {
-		this.changeValue('decrement');
 	}
 
 	private init() {
@@ -112,32 +99,30 @@ class HSInputNumber
 		if (this.increment) this.buildIncrement();
 		if (this.decrement) this.buildDecrement();
 
-		if (this.inputValue <= this.minInputValue) {
-			this.inputValue = this.minInputValue;
-			this.input.value = `${this.minInputValue}`;
+		if (this.inputValue <= 0 && this.minInputValue === 0) {
+			this.inputValue = 0;
+			this.input.value = '0';
 		}
 
-		if (this.inputValue <= this.minInputValue) this.changeValue();
+		if (this.inputValue <= 0 || this.minInputValue < 0) this.changeValue();
 
 		if (this.input.hasAttribute('disabled')) this.disableButtons();
 	}
 
 	private buildInput() {
-		this.onInputInputListener = () => this.inputInput();
-
-		this.input.addEventListener('input', this.onInputInputListener);
+		this.input.addEventListener('input', () => this.changeValue());
 	}
 
 	private buildIncrement() {
-		this.onIncrementClickListener = () => this.incrementClick();
-
-		this.increment.addEventListener('click', this.onIncrementClickListener);
+		this.increment.addEventListener('click', () => {
+			this.changeValue('increment');
+		});
 	}
 
 	private buildDecrement() {
-		this.onDecrementClickListener = () => this.decrementClick();
-
-		this.decrement.addEventListener('click', this.onDecrementClickListener);
+		this.decrement.addEventListener('click', () => {
+			this.changeValue('decrement');
+		});
 	}
 
 	private changeValue(event = 'none') {
@@ -256,25 +241,6 @@ class HSInputNumber
 		}
 	}
 
-	// Public methods
-	public destroy() {
-		// Remove classes
-		this.el.classList.remove('disabled');
-
-		// Remove attributes
-		this.increment.removeAttribute('disabled');
-		this.decrement.removeAttribute('disabled');
-
-		// Remove listeners
-		this.input.removeEventListener('input', this.onInputInputListener);
-		this.increment.removeEventListener('click', this.onIncrementClickListener);
-		this.decrement.removeEventListener('click', this.onDecrementClickListener);
-
-		window.$hsInputNumberCollection = window.$hsInputNumberCollection.filter(
-			({ element }) => element.el !== this.el,
-		);
-	}
-
 	// Global method
 	static getInstance(target: HTMLElement | string, isInstance?: boolean) {
 		const elInCollection = window.$hsInputNumberCollection.find(
@@ -292,11 +258,6 @@ class HSInputNumber
 
 	static autoInit() {
 		if (!window.$hsInputNumberCollection) window.$hsInputNumberCollection = [];
-
-		if (window.$hsInputNumberCollection)
-			window.$hsInputNumberCollection = window.$hsInputNumberCollection.filter(
-				({ element }) => document.contains(element.el),
-			);
 
 		document
 			.querySelectorAll('[data-hs-input-number]:not(.--prevent-on-load-init)')

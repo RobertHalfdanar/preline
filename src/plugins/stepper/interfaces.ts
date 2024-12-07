@@ -8,12 +8,16 @@ export interface IStepper {
 	options?: IStepperOptions;
 	
 	setProcessedNavItem(n?: number): void;
+	
 	unsetProcessedNavItem(n?: number): void;
+	
 	goToNext(): void;
+	
 	disableButtons(): void;
+	
 	enableButtons(): void;
+	
 	setErrorNavItem(n?: number): void;
-	destroy(): void;
 }
 
 export interface IStepperItem {

@@ -18,7 +18,6 @@ export interface ICollectionItem<T> {
 }
 export interface IScrollspy {
 	options?: {};
-	destroy(): void;
 }
 declare class HSScrollspy extends HSBasePlugin<{}> implements IScrollspy {
 	private activeSection;
@@ -28,15 +27,10 @@ declare class HSScrollspy extends HSBasePlugin<{}> implements IScrollspy {
 	private readonly sections;
 	private readonly scrollableId;
 	private readonly scrollable;
-	private onScrollableScrollListener;
-	private onLinkClickListener;
 	constructor(el: HTMLElement, options?: {});
-	private scrollableScroll;
-	private linkClick;
 	private init;
 	private update;
 	private scrollTo;
-	destroy(): void;
 	static getInstance(target: HTMLElement, isInstance?: boolean): HTMLElement | ICollectionItem<HSScrollspy>;
 	static autoInit(): void;
 }
