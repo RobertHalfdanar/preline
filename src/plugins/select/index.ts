@@ -367,10 +367,9 @@ class HSSelect extends HSBasePlugin<ISelectOptions> implements ISelect {
 		const item = this.getItemByValue(this.value as string) as ISingleOption &
 			IApiFieldMap;
 		const icon = this.toggle.querySelector('[data-icon]');
+		icon.innerHTML = '';
 
 		if (icon) {
-			icon.innerHTML = '';
-
 			const img = htmlToElement(
 				this.apiUrl && this.apiIconTag
 					? this.apiIconTag || ''
@@ -388,10 +387,13 @@ class HSSelect extends HSBasePlugin<ISelectOptions> implements ISelect {
 
 	private setToggleTitle() {
 		const title = this.toggle.querySelector('[data-title]');
+		title.classList.add('truncate');
+		title.innerHTML = '';
 
 		if (title) {
-			title.innerHTML = this.getItemByValue(this.value as string)?.title || this.placeholder;
-			title.classList.add('truncate');
+			const titleText =
+				this.getItemByValue(this.value as string)?.title || this.placeholder;
+			title.innerHTML = titleText;
 
 			this.toggle.append(title);
 		}
